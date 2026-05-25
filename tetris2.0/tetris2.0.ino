@@ -46,7 +46,7 @@ bool lastBL = HIGH, lastBM = HIGH, lastBR = HIGH;
 unsigned long lastDebounceBL = 0, lastDebounceBM = 0, lastDebounceBR = 0;
 const unsigned long debounceDelay = 20;
 
-// ---------------- CLEAR ----------------
+// ---------------- ROW CLEARING ----------------
 bool clearingRows = false;
 bool rowsToClear[16] = {false};
 int clearFlash = 0;
@@ -62,6 +62,7 @@ unsigned long gameOverTimer = 0;
 // ---------------- SOUND ----------------
 unsigned long sound_timer = 0;
 
+// Simple beep with cooldown to avoid overlapping sounds
 void beep(int freq, int duration) {
 
   if(millis() - sound_timer >= 200) {
@@ -72,12 +73,16 @@ void beep(int freq, int duration) {
   }
 }
 
-// ---------------- INPUT ----------------
+// ---------------- INPUT HANDLING ----------------
 bool pressed(int pin, bool &lastState, unsigned long &lastDebounce) {
+
   bool now = digitalRead(pin);
 
+  // Detect falling edge (HIGH -> LOW)
   if(lastState == HIGH && now == LOW) {
+
     if(millis() - lastDebounce > debounceDelay) {
+
       lastDebounce = millis();
       lastState = now;
       return true;
@@ -88,24 +93,32 @@ bool pressed(int pin, bool &lastState, unsigned long &lastDebounce) {
   return false;
 }
 
-// ---------------- COLLISION ----------------
+// ---------------- COLLISION CHECK ----------------
 bool canMove(int x, int y) {
+
   for(int i = 0; i < 3; i++) {
     for(int j = 0; j < 3; j++) {
+
       if(current[i][j]) {
+
         int nx = x + j;
         int ny = y + i;
 
-        if(nx < 0 || nx >= 8 || ny >= 16) return false;
-        if(ny >= 0 && board[ny][nx]) return false;
+        if(nx < 0 || nx >= 8 || ny >= 16)
+          return false;
+
+        if(ny >= 0 && board[ny][nx])
+          return false;
       }
     }
   }
+
   return true;
 }
 
-// ---------------- SPAWN ----------------
+// ---------------- SPAWN PIECE ----------------
 void spawnPiece() {
+
   currentShape = random(7);
   currentX = 2;
   currentY = 0;
@@ -115,11 +128,14 @@ void spawnPiece() {
       current[i][j] = shapes[currentShape][i][j];
 }
 
-// ---------------- BOARD MERGE ----------------
+// ---------------- MERGE PIECE INTO BOARD ----------------
 void addPieceToBoard() {
+
   for(int i = 0; i < 3; i++) {
     for(int j = 0; j < 3; j++) {
+
       if(current[i][j]) {
+
         int x = currentX + j;
         int y = currentY + i;
 
@@ -130,13 +146,15 @@ void addPieceToBoard() {
   }
 }
 
-// ---------------- CLEAR ROWS ----------------
+// ---------------- CLEAR FULL ROWS ----------------
 void clearFullRows() {
+
   if(clearingRows) return;
 
   bool found = false;
 
   for(int y = 0; y < 16; y++) {
+
     bool full = true;
 
     for(int x = 0; x < 8; x++) {
@@ -158,28 +176,35 @@ void clearFullRows() {
   }
 }
 
-// ---------------- GAME OVER ANIMATION ----------------
+// ---------------- GAME OVER TRIGGER ----------------
 void triggerGameOver() {
+
   gameOver = true;
   gameOverFlash = 0;
   gameOverTimer = millis();
 }
 
+// ---------------- GAME OVER ANIMATION ----------------
 void updateGameOver() {
+
   if(!gameOver) return;
 
   if(millis() - gameOverTimer < 200) return;
-  gameOverTimer = millis();
 
+  gameOverTimer = millis();
   gameOverFlash++;
 
   if(gameOverFlash % 2 == 0) {
+
     Anzeige.clearDisplay(0);
     Anzeige.clearDisplay(1);
+
   } else {
-    // show all ON
+
+    // Flash full display ON
     for(int y = 0; y < 8; y++) {
       for(int x = 0; x < 8; x++) {
+
         Anzeige.setLed(0, y, x, 1);
         Anzeige.setLed(1, y, x, 1);
       }
@@ -188,49 +213,40 @@ void updateGameOver() {
 
   if(gameOverFlash > 8) {
 
-    // Animation beenden
+    // End animation
     gameOver = false;
 
-    // Hardware displays clearen
+    // Clear hardware displays
     Anzeige.clearDisplay(0);
     Anzeige.clearDisplay(1);
 
-    // Board löschen
-    for(int y = 0; y < 16; y++) {
-
-      for(int x = 0; x < 8; x++) {
-
+    // Reset board
+    for(int y = 0; y < 16; y++)
+      for(int x = 0; x < 8; x++)
         board[y][x] = false;
-      }
-    }
 
-    // Neue Figur sofort erzeugen
+    // Spawn new piece
     spawnPiece();
 
-    // Screen Buffer absichtlich falsch setzen
-    // damit drawBoard alles komplett neu zeichnet
-    for(int y = 0; y < 16; y++) {
-
-      for(int x = 0; x < 8; x++) {
-
+    // Force full redraw
+    for(int y = 0; y < 16; y++)
+      for(int x = 0; x < 8; x++)
         screen[y][x] = !board[y][x];
-      }
-    }
 
-    // Kompletten Frame neu rendern
     drawBoard();
 
-    // Score reset
+    // Reset score
     score = 0;
     display.showNumberDec(score, false);
 
-    // Timer reset
+    // Reset timer
     lastDropTime = millis();
   }
 }
 
-// ---------------- CLEAR ANIMATION ----------------
+// ---------------- ROW CLEAR ANIMATION ----------------
 void updateRowClearAnimation() {
+
   if(!clearingRows) return;
   if(millis() - clearTimer < clearInterval) return;
 
@@ -247,14 +263,12 @@ void updateRowClearAnimation() {
     score += cleared;
     display.showNumberDec(score, false);
 
-    if(cleared == 1) {
-      tone(BUZZER_PIN, 900, 80);
-    } else if(cleared == 2) {
-      tone(BUZZER_PIN, 1100, 120);
-    } else if(cleared >= 3) {
-      tone(BUZZER_PIN, 1400, 180);
-    }
+    // Clear sound depending on number of rows
+    if(cleared == 1) tone(BUZZER_PIN, 900, 80);
+    else if(cleared == 2) tone(BUZZER_PIN, 1100, 120);
+    else if(cleared >= 3) tone(BUZZER_PIN, 1400, 180);
 
+    // Collapse board
     bool temp[16][8] = {{0}};
     int writeY = 15;
 
@@ -289,8 +303,9 @@ void updateRowClearAnimation() {
   }
 }
 
-// ---------------- ROTATE ----------------
+// ---------------- ROTATION ----------------
 void rotatePiece() {
+
   bool temp[3][3];
 
   for(int i = 0; i < 3; i++)
@@ -299,7 +314,9 @@ void rotatePiece() {
 
   for(int i = 0; i < 3; i++) {
     for(int j = 0; j < 3; j++) {
+
       if(temp[i][j]) {
+
         int x = currentX + j;
         int y = currentY + i;
 
@@ -316,6 +333,7 @@ void rotatePiece() {
 
 // ---------------- DRAW ----------------
 void drawBoard() {
+
   bool newScreen[16][8] = {{0}};
 
   for(int y = 0; y < 16; y++)
@@ -323,11 +341,15 @@ void drawBoard() {
       if(board[y][x]) newScreen[y][x] = true;
 
   if(!clearingRows && !gameOver) {
+
     for(int i = 0; i < 3; i++) {
       for(int j = 0; j < 3; j++) {
+
         if(current[i][j]) {
+
           int x = currentX + j;
           int y = currentY + i;
+
           if(x >= 0 && x < 8 && y >= 0 && y < 16)
             newScreen[y][x] = true;
         }
@@ -336,6 +358,7 @@ void drawBoard() {
   }
 
   if(clearingRows && !clearVisible) {
+
     for(int y = 0; y < 16; y++)
       if(rowsToClear[y])
         for(int x = 0; x < 8; x++)
@@ -344,7 +367,9 @@ void drawBoard() {
 
   for(int y = 0; y < 16; y++) {
     for(int x = 0; x < 8; x++) {
+
       if(newScreen[y][x] != screen[y][x]) {
+
         int module = (y < 8) ? 1 : 0;
         int row = (y < 8) ? y : y - 8;
 
@@ -357,6 +382,7 @@ void drawBoard() {
 
 // ---------------- SETUP ----------------
 void setup() {
+
   for(int m = 0; m < 2; m++) {
     Anzeige.shutdown(m, false);
     Anzeige.setIntensity(m, 4);
@@ -376,8 +402,9 @@ void setup() {
   lastDropTime = millis();
 }
 
-// ---------------- LOOP ----------------
+// ---------------- MAIN LOOP ----------------
 void loop() {
+
   unsigned long now = millis();
 
   updateGameOver();
@@ -385,36 +412,29 @@ void loop() {
 
   if(!clearingRows && !gameOver) {
 
-    // LEFT
-if(pressed(bl, lastBL, lastDebounceBL)) {
+    // Move left
+    if(pressed(bl, lastBL, lastDebounceBL)) {
+      if(canMove(currentX - 1, currentY)) {
+        currentX--;
+        beep(800, 20);
+      }
+    }
 
-  if(canMove(currentX - 1, currentY)) {
+    // Move right
+    if(pressed(br, lastBR, lastDebounceBR)) {
+      if(canMove(currentX + 1, currentY)) {
+        currentX++;
+        beep(800, 20);
+      }
+    }
 
-    currentX--;
+    // Rotate piece
+    if(pressed(bm, lastBM, lastDebounceBM)) {
+      rotatePiece();
+      beep(1200, 30);
+    }
 
-    beep(800, 20);
-  }
-}
-
-// RIGHT
-if(pressed(br, lastBR, lastDebounceBR)) {
-
-  if(canMove(currentX + 1, currentY)) {
-
-    currentX++;
-
-    beep(800, 20);
-  }
-}
-
-// ROTATE
-if(pressed(bm, lastBM, lastDebounceBM)) {
-
-  rotatePiece();
-
-  beep(1200, 30);
-}
-
+    // Auto drop
     if(now - lastDropTime >= dropInterval) {
 
       if(canMove(currentX, currentY + 1)) {
@@ -427,7 +447,8 @@ if(pressed(bm, lastBM, lastDebounceBM)) {
           spawnPiece();
 
           if(!canMove(currentX, currentY)) {
-            triggerGameOver(); beep(150, 500);
+            triggerGameOver();
+            beep(150, 500);
           }
         }
       }

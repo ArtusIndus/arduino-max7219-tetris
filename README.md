@@ -1,7 +1,7 @@
 
 # Arduino MAX7219 Tetris
 
-[![Watch the video](https://img.youtube.com/vi/qoqm8eURhMg/maxresdefault.jpg)](https://youtu.be/qoqm8eURhMg)
+[![Watch the video](https://img.youtube.com/vi/qoqm8eURhMg/hqdefault.jpg)](https://youtu.be/qoqm8eURhMg)
 
 A fully playable Tetris clone for Arduino Mega with smooth rendering, animations, sound effects and score display.
 
